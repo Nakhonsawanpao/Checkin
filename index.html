@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ระบบเช็คอิน</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #ede7f6, #f3e5f5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: #fff;
+      padding: 30px 25px;
+      border-radius: 16px;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+      width: 90%;
+      max-width: 400px;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo-container img {
+      max-width: 100px;
+      height: auto;
+    }
+
+    h1 {
+      color: #6a1b9a;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 500;
+      color: #555;
+    }
+
+    input {
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      width: 100%;
+      margin-bottom: 15px;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 12px;
+      background-color: #8e24aa;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      width: 100%;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      box-shadow: 0 6px 12px rgba(142, 36, 170, 0.25);
+    }
+
+    button:hover {
+      background-color: #7b1fa2;
+      transform: translateY(-1px);
+    }
+
+    .status {
+      margin-top: 20px;
+      text-align: center;
+      font-weight: 500;
+      padding: 12px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .status.success {
+      background-color: #f3e5f5;
+      color: #4a148c;
+      display: block;
+    }
+
+    .status.error {
+      background-color: #fbe9e7;
+      color: #d32f2f;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-container">
+      <!-- 🔄 เปลี่ยน src ด้านล่างให้เป็นโลโก้ของคุณ -->
+      <img src="https://www.nakhonsawanpao.go.th/ci/html/project_pao_html/img/logo/logo_pao.png" alt="Logo">
+    </div>
+    <h1>ระบบเช็คอิน</h1>
+    <label for="name">กรอกชื่อของคุณ</label>
+    <input type="text" id="name" placeholder="ชื่อ-สกุล">
+    <button onclick="checkIn()"> เช็คอินพร้อมพิกัด</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+    const savedName = localStorage.getItem("checkin_name");
+    if (savedName) {
+      document.getElementById("name").value = savedName;
+    }
+    });
+    function checkIn() {
+      const nameInput = document.getElementById("name");
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert("กรุณากรอกชื่อก่อน");
+      return;
+      }
+      
+      localStorage.setItem("checkin_name", name); // ✅ บันทึกชื่อ
+      
+      if (!navigator.geolocation) {
+        updateStatus("เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง", "error");
+        return;
+      }
+
+      updateStatus("📍 กำลังดึงพิกัด...", "success");
+
+      navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        const callbackName = 'jsonpCallback_' + Math.floor(Math.random() * 1000000);
+        window[callbackName] = function(response) {
+          if (response.status === 'success') {
+            updateStatus("✅ เช็คอินสำเร็จ", "success");
+          } else {
+            updateStatus("❌ เกิดข้อผิดพลาด: " + (response.message || 'ไม่ทราบสาเหตุ'), "error");
+          }
+          delete window[callbackName];
+          document.getElementById(callbackName).remove();
+        };
+
+        const url = `https://script.google.com/macros/s/AKfycbwf_7sVnpPsXUQeRwmn-x3ZphA5IaLpuHK0gDAwoFMkBf6pC14YNX8ND5sGxZG7azG6YA/exec?name=${encodeURIComponent(name)}&lat=${lat}&lng=${lng}&callback=${callbackName}`;
+
+        const script = document.createElement('script');
+        script.src = url;
+        script.id = callbackName;
+        document.body.appendChild(script);
+
+      }, err => {
+        console.error(err);
+        updateStatus("❌ ไม่สามารถดึงพิกัดได้ โปรดอนุญาตการเข้าถึงตำแหน่ง", "error");
+      });
+    }
+
+    function updateStatus(message, type) {
+      const statusDiv = document.getElementById("status");
+      statusDiv.textContent = message;
+      statusDiv.className = "status " + type;
+    }
+  </script>
+</body>
+</html>
